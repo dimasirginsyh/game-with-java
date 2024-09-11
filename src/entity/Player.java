@@ -12,17 +12,32 @@ public class Player extends Entity {
     GamePanel gamePanel;
     KeyHandler keyHandler;
 
+    public final int screenX;
+    public final int screenY;
+    public int hasKey = 0;
+
     public Player(GamePanel gamePanel, KeyHandler keyHandler) {
         this.gamePanel = gamePanel;
         this.keyHandler = keyHandler;
+
+        screenX = gamePanel.screenWidth/2 - (gamePanel.tileSize/2);
+        screenY = gamePanel.screenHeight/2 - (gamePanel.tileSize/2);
+
+        solidArea = new Rectangle();
+        solidArea.x = 8;
+        solidArea.y = 16;
+        solidAreaDefaultX = solidArea.x;
+        solidAreaDefaultY = solidArea.y;
+        solidArea.width = 32;
+        solidArea.height = 32;
 
         setDefaultValues();
         getPlayerImage();
     }
 
     public void setDefaultValues() {
-        x = 100;
-        y = 100;
+        worldX = gamePanel.tileSize * 23;
+        worldY = gamePanel.tileSize * 21;
         speed = 4;
         direction = "down";
     }
@@ -49,16 +64,27 @@ public class Player extends Entity {
                 || keyHandler.rightPressed) {
             if (keyHandler.upPressed) {
                 direction = "up";
-                y -= speed;
             } else if (keyHandler.downPressed) {
                 direction = "down";
-                y += speed;
             } else if (keyHandler.leftPressed) {
                 direction = "left";
-                x -= speed;
             } else if (keyHandler.rightPressed) {
                 direction = "right";
-                x += speed;
+            }
+
+            collisionOn = false;
+            gamePanel.collisionChecker.checkTile(this);
+
+            int objectIndex = gamePanel.collisionChecker.checkObject(this, true);
+            pickUpObject(objectIndex);
+
+            if (!collisionOn) {
+                switch (direction) {
+                    case "up": worldY -= speed; break;
+                    case "down": worldY += speed; break;
+                    case "left": worldX -= speed; break;
+                    case "right": worldX += speed; break;
+                }
             }
 
             spriteCounter++;
@@ -75,9 +101,42 @@ public class Player extends Entity {
         }
     }
 
+    public void pickUpObject(int index) {
+        if (index != 999) {
+            String objectName = gamePanel.obj[index].name;
+            switch (objectName) {
+                case "Key":
+                    gamePanel.playSE(1);
+                    hasKey++;
+                    gamePanel.obj[index] = null;
+                    gamePanel.ui.showMessage("You got a key!");
+                    break;
+                case "Door":
+                    if (hasKey > 0) {
+                        gamePanel.playSE(3);
+                        gamePanel.obj[index] = null;
+                        hasKey--;
+                        gamePanel.ui.showMessage("You opened the door!");
+                    } else {
+                        gamePanel.ui.showMessage("You don't have a key!");
+                    }
+                    break;
+                case "Boots":
+                    gamePanel.playSE(2);
+                    speed += 2;
+                    gamePanel.obj[index] = null;
+                    gamePanel.ui.showMessage("Speed up!");
+                    break;
+                case "Chest":
+                    gamePanel.ui.gameFinished = true;
+                    gamePanel.stopMusic();
+                    gamePanel.playSE(4);
+                    break;
+            }
+        }
+    }
+
     public void draw(Graphics2D g2d) {
-//         g2d.setColor(Color.WHITE);
-//         g2d.fillRect(x, y, gamePanel.tileSize, gamePanel.tileSize);
         BufferedImage image = null;
         switch (direction) {
             case "up":
@@ -113,7 +172,6 @@ public class Player extends Entity {
                 }
                 break;
         }
-        ;
-        g2d.drawImage(image, x, y, gamePanel.tileSize, gamePanel.tileSize, null);
+        g2d.drawImage(image, screenX, screenY, gamePanel.tileSize, gamePanel.tileSize, null);
     }
 }
